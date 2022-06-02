@@ -6,54 +6,161 @@ import numpy as np
 import pandas as pd
 import os
 import re
+from itertools import product
 
 
-class Entry:
-    def __init__(self, row, col, x, y, text):
-        self.row = row
-        self.col = col
-        self.x = x
-        self.y = y
-        self.text = text
+# class Entry:
+#     def __init__(self, row, col, x, y, text):
+#         self.row = row
+#         self.col = col
+#         self.x = x
+#         self.y = y
+#         self.text = text
+
+#     @property
+#     def x(self):
+#         return self.x
+
+#     @property
+#     def y(self):
+#         return self.y
+
+#     @property
+#     def row(self):
+#         return self.row
+
+#     @property
+#     def col(self):
+#         return self.col
+
+#     @property
+#     def text(self):
+#         return self.text
 
 
-class Sheet:
-    def __init__(self, qid) -> None:
-        self.line_data = None
-        self.key_value = None
+# class Sheet:
+#     def __init__(self, qid) -> None:
+#         self.line_data = None
+#         self.key_value = None
 
-        self.id = qid  # QDxxxxx
+#         self.id = qid  # QDxxxxx
 
-        # single pages or multi
-        self.single = True
+#         # single pages or multi
+#         self.single = True
 
-        self.table = None  # grid
+#         self.table = None  # grid
+#         # or nested dictionary
 
+
+#         # header
+#         # body
+#         self.body_coor = [topx,topy,lowx,lowy]
+#         # footer
     
-    def save_table(self):
-        self.key_value.to_csv(f'{self.id}.csv', index=False)
+#     def save_table(self):
+#         self.key_value.to_csv(f'{self.id}.csv', index=False)
 
-    def set_if_single_page(self, t):
-        self.single = t
+#     def set_if_single_page(self, t):
+#         self.single = t
+
+#     #def get_entry(self, row, col):
+#     #    """when table is an array"""
+#     #    return self.table[row, col]
+
+#     def get_entry(self, row, col):
+#         """when table is a DataFrame"""
+#         try:
+#             return self.table[self.table['row']==row and self.table['col']==col].values[0]
+#         except ValueError:
+#             print('need to update this method')
 
 
-def if_multi_pages(table_data):
+
+
+
+def if_multi_pages(d):
     texts = list(d.keys())
     if texts.count('姓名') > 1 or texts.count('性别') > 1:
         return True 
+
+
 
 
 #####################################################################
 # functions
 ##############################################################################
 def time_test(s):
-    b = ''
-    for i in s:
-     if i.isdigit() or i in ['/','-','.',':',' ']:
-         b = b + i
-     if not (i.isdigit() or i in ['/','-','.',':',' ']):
-         break
+    time_pattern = r'[0-9\-\/\.\:]+'
+    return re.match(time_pattern, s).group()
+    # time = re.match(time_pattern, s)
+    # if time is not None:
+    #     return time.group()
+    # else:
+    #     return 'NOT FOUND'
+    # b = ''
+    # for i in s:
+    #  if i.isdigit() or i in ['/','-','.',':',' ']:
+    #      b = b + i
+    #  if not (i.isdigit() or i in ['/','-','.',':',' ']):
+    #      break
+    # return b
+
+
+def is_time(s):
+    #time_pattern = r'[0-9]{4}[\-\/\.][0-9]{1,2}'
+    time_pattern = r'[0-9\-\/\.\:]+'
+    b = bool(re.search(time_pattern, s))
     return b
+
+
+# def get_time(e):
+#     time = 'NOT FOUND'
+#     if ':' in e.text:
+#         time_string = e.text.split(':')
+#         # when time_value is in the same entry with the time_key
+#         if len(time_string) > 1:
+#             time = time_test(time_string)
+#            # return time
+#         else:
+#         # if time_value is not in the same entry as the time_key, find if it's in the next row (same/close column)
+#             # for i in range(3):
+#             #     for j in range(3):
+#             #         next_entry = Sheet.get_entry(e.row+i, e.col+j)
+#             #         if next_entry is not None:
+#             #             if is_time(next_entry.text):
+#             #                 time = time_test(next_entry.text)
+#             #                 return time
+#             #         else:
+#             #             continue
+#             for r,c in product(range(3), range(3)):
+#                 next_entry = Sheet.get_entry(e.row+r, e.col+c)
+#                 if next_entry is not None and is_time(next_entry.text):
+#                     time = time_test(next_entry.text)
+#                     break
+#     return time
+
+
+def get_time(s):
+    time = 'NOT FOUND'
+    if ':' in s:
+        time_string = s.split(':',1)[-1]
+        # when time_value is in the same entry with the time_key
+        #if len(time_string) > 1:
+        if time_string != '':
+            print(is_time(time_string))
+            time = time_test(time_string)
+            print(time)
+        else:
+            for r,c in product(range(3), range(3)):
+                print(r,c)
+    return time
+
+
+def get_xitongid(sheet):
+    return sheet.id
+
+def get_diagnosis():
+    pass
 
 
 def get_id(s):
@@ -169,6 +276,8 @@ def get_target_data(headers,table_data, prefix, proj):
         a = table_data[table_data['text'].str.contains(i,regex=True)]['text']
         if len(a) != 0:
             a = table_data[table_data['text'].str.contains(i,regex=True)]['text'].values[0]   
+            if '时间' in a:
+                print(get_time(a))
         else:
             if key_name == '全人群系统项目编号':
                 kvalue = kvalue.append({'k': key_name, 'values': prefix}, ignore_index=True)
@@ -178,33 +287,31 @@ def get_target_data(headers,table_data, prefix, proj):
                 kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
             continue
 
-        split = a.find(':')
-        if split != -1:
-            value = a[split+1:]
-            if '时间' in a:
-                value = time_test(value)
-            elif '检验项目' in a:
-                value = '血糖'
-            kvalue = kvalue.append({'k': key_name, 'values': value}, ignore_index=True)
-        else:
-            #location = table_data[table_data['text']==a].index.values.astype(int)[0]
-            #value = list(table_data['text'])[location+1]
-            y = table_data[table_data['text']==a]['row'].values[0]
-            x = table_data[table_data['text']==a]['col'].values[0]
-            value = table_data[(table_data['row']==y)&(table_data['col']>x)]
-            print(key_name)
-            print(value)
-            value.sort_values('col')
-            try:
-                value = value['text'].iloc[0]
-            except IndexError:
-                kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
-                continue
-                #y1 = y+1
-                #value = table_data[table_data['row']==y1]
-                #print(value)
-            kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
-    return kvalue
+    #     split = a.find(':')
+    #     if split != -1:
+    #         value = a[split+1:]
+    #         if '时间' in a:
+    #             value = time_test(value)
+    #         elif '检验项目' in a:
+    #             value = '血糖'
+    #         kvalue = kvalue.append({'k': key_name, 'values': value}, ignore_index=True)
+    #     else:
+    #         y = table_data[table_data['text']==a]['row'].values[0]
+    #         x = table_data[table_data['text']==a]['col'].values[0]
+    #         value = table_data[(table_data['row']==y)&(table_data['col']>x)]
+    #         print(key_name)
+    #         print(value)
+    #         value.sort_values('col')
+    #         try:
+    #             value = value['text'].iloc[0]
+    #         except IndexError:
+    #             kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
+    #             continue
+    #             #y1 = y+1
+    #             #value = table_data[table_data['row']==y1]
+    #             #print(value)
+    #         kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
+    # return kvalue
 
 
 def find_section(ts):
@@ -315,6 +422,7 @@ if __name__ == '__main__':
     ###########
     # find target key-values
     headers = load_header(headerjson_filename)
+    get_target_data(headers,table_data, name, proj)
     #kvalue = get_target_data(headers,table_data, name, proj)
     ###########
     # save csv
@@ -322,23 +430,23 @@ if __name__ == '__main__':
     #print(kvalue)
     #kvalue.to_csv(f"{prefix}.csv",encoding='utf_8_sig',header=False)
 
-    ts = []
-    for text in table_data['text']:
-        t = Entry(table_data[table_data['text']==text]['row'].values[0], \
-            table_data[table_data['text']==text]['col'].values[0], \
-                table_data[table_data['text']==text]['x'].values[0], \
-                    table_data[table_data['text']==text]['y'].values[0], \
-                        text)
-        ts.append(t)
+    # ts = []
+    # for text in table_data['text']:
+    #     t = Entry(table_data[table_data['text']==text]['row'].values[0], \
+    #         table_data[table_data['text']==text]['col'].values[0], \
+    #             table_data[table_data['text']==text]['x'].values[0], \
+    #                 table_data[table_data['text']==text]['y'].values[0], \
+    #                     text)
+    #     ts.append(t)
 
 
-    ts = sorted(ts, key=lambda x: (x.x, x.y))
-    x1,y1,x2,y2 = find_section(ts)
-    l1 = sort_section_col(ts, y1, y2)
-    l2 = detect_col(l1)
-    l3 = match_row(l2)
-    for kp in headers:
-        v = get_value(l3, kp[1])
-        if v is not None:
-            print(f'{kp[0]}\t{v}')
+    # ts = sorted(ts, key=lambda x: (x.x, x.y))
+    # x1,y1,x2,y2 = find_section(ts)
+    # l1 = sort_section_col(ts, y1, y2)
+    # l2 = detect_col(l1)
+    # l3 = match_row(l2)
+    # for kp in headers:
+    #     v = get_value(l3, kp[1])
+    #     if v is not None:
+    #         print(f'{kp[0]}\t{v}')
 
