@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from pickle import TRUE
 import sys
 import json
 import numpy as np
@@ -89,85 +90,162 @@ def if_multi_pages(d):
 #####################################################################
 # functions
 ##############################################################################
+def is_value(s,pattern):
+    return bool(re.search(pattern, s))
+def get_value(s,pattern,x,y,r:list=(-3,3)):
+    value = 'NOT FOUND'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':
+            if is_value(string, pattern):
+                value = re.match(pattern, text).group()
+        else:
+            for r,c in product(range(r[0],r[1]), range(r[0],r[1])):  # TODO: range
+                value1 = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value1) > 0:
+                    text = value1['text'].values[0]
+                    if is_value(text):
+                        value = re.match(pattern, text).group()
+    else:
+        # when : is not in key-value?
+        pass
+    return value
+###########################################################
+
+# 1. SYSTEM ID---------------------
+def get_id(s):
+    id_pattern = r'QD[A-Z]+[0-9]+'
+    item_id = re.match(id_pattern,s)
+    item_id = item_id.group()
+    return item_id
+
+# 2. TIME----------------------------
 def time_test(s):
     time_pattern = r'[0-9\-\/\.\:]+'
     return re.match(time_pattern, s).group()
-    # time = re.match(time_pattern, s)
-    # if time is not None:
-    #     return time.group()
-    # else:
-    #     return 'NOT FOUND'
-    # b = ''
-    # for i in s:
-    #  if i.isdigit() or i in ['/','-','.',':',' ']:
-    #      b = b + i
-    #  if not (i.isdigit() or i in ['/','-','.',':',' ']):
-    #      break
-    # return b
-
-
 def is_time(s):
-    #time_pattern = r'[0-9]{4}[\-\/\.][0-9]{1,2}'
-    time_pattern = r'[0-9\-\/\.\:]+'
+    time_pattern = r'[0-9]{4}[\-\/\.\:][0-9\-\/\.\:]+'
     b = bool(re.search(time_pattern, s))
     return b
-
-
 # def get_time(e):
 #     time = 'NOT FOUND'
 #     if ':' in e.text:
-#         time_string = e.text.split(':')
+#         time_string = s.split(':',1)[-1]
 #         # when time_value is in the same entry with the time_key
-#         if len(time_string) > 1:
+#         if time_string != '':
 #             time = time_test(time_string)
 #            # return time
 #         else:
 #         # if time_value is not in the same entry as the time_key, find if it's in the next row (same/close column)
-#             # for i in range(3):
-#             #     for j in range(3):
-#             #         next_entry = Sheet.get_entry(e.row+i, e.col+j)
-#             #         if next_entry is not None:
-#             #             if is_time(next_entry.text):
-#             #                 time = time_test(next_entry.text)
-#             #                 return time
-#             #         else:
-#             #             continue
 #             for r,c in product(range(3), range(3)):
 #                 next_entry = Sheet.get_entry(e.row+r, e.col+c)
 #                 if next_entry is not None and is_time(next_entry.text):
 #                     time = time_test(next_entry.text)
 #                     break
 #     return time
-
-
-def get_time(s):
+def get_time(s,x,y):
+    """dataframe version"""
     time = 'NOT FOUND'
     if ':' in s:
         time_string = s.split(':',1)[-1]
-        # when time_value is in the same entry with the time_key
-        #if len(time_string) > 1:
         if time_string != '':
-            print(is_time(time_string))
             time = time_test(time_string)
-            print(time)
         else:
-            for r,c in product(range(3), range(3)):
-                print(r,c)
+            for r,c in product(range(-2,3), range(-2,3)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if is_time(text):
+                        time = time_test(text)
     return time
 
 
-def get_xitongid(sheet):
-    return sheet.id
-
+# 3. DIAGNOSIS-----------------------------------
 def get_diagnosis():
     pass
 
+# 4. AGE----------------------------------------------------------------------
+def is_age_key(a:str):
+    base = i
+def is_age(s):
+    if '岁' in s:
+        s = s.replace('岁','')
+    age_pattern = r'^[0-9]{1,2}$'  # TODO: 1. raw string 2. 有没有没有”岁“的
+    b = bool(re.search(age_pattern, s))
+    return b
 
-def get_id(s):
-    id_pattern = r'QD[A-Z]+[0-9]+'
-    item_id = re.match(id_pattern,s)
-    item_id = item_id.group()
-    return item_id
+def is_dob(s):
+    dob_pattern = r'[0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2}'
+    b = bool(re.search(dob_pattern, s))
+    return b
+
+def get_age(s,x,y):
+    age = 'NOT FOUND'
+    age_pattern = r'[0-9]{2}'  # TODO: raw string
+    dob_pattern = r'[0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2}'
+    #----------
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':
+            if is_age(string):
+                age = re.match(age_pattern, string).group()
+                age = age+'岁'
+            elif is_dob(string):
+                age = re.match(dob_pattern, string).group()
+        else:
+            for r,c in product(range(-6,10), range(-6,10)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if is_age(text):
+                        print(text)
+                        age = re.match(age_pattern, text).group()
+                        age = age+'岁'
+                    elif is_dob(text):
+                        print(text)
+                        age = re.match(dob_pattern, text).group()
+    return age
+
+
+# 5.GENDER----------------------------------------------------------------------
+def is_gender(s):
+    db = ['女', '男']  # TODO: 有没有识别错误的
+    if s in db:
+        return True
+    else:
+        return False
+
+def get_gender(s):
+    gender = 'NOT FOUND'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if is_gender(string):
+            gender = string
+    return gender
+
+# 6.NAME----------------------------------------------------------------------
+def is_name(s):
+    name_pattern = r''  # TODO: 汉字。。少数民族？。。罕见字显示异常
+    b = bool(re.search(name_pattern, s))
+    return b
+def get_name(s,x,y):
+    name_pattern = r''
+    name = 'NOT FOUND'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':
+            if is_name(string):
+                name = ''
+        else:
+            for r,c in product(range(-3,3), range(-3,3)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if is_age(text):
+                        name = re.match(name_pattern, text).group()
+                    elif is_dob(text):
+                        name = re.match(name_pattern, text).group()
+    return name
 
 
 ######################################################
@@ -276,8 +354,18 @@ def get_target_data(headers,table_data, prefix, proj):
         a = table_data[table_data['text'].str.contains(i,regex=True)]['text']
         if len(a) != 0:
             a = table_data[table_data['text'].str.contains(i,regex=True)]['text'].values[0]   
-            if '时间' in a:
-                print(get_time(a))
+            y = table_data[table_data['text']==a]['row'].values[0]
+            x = table_data[table_data['text']==a]['col'].values[0]
+            if '时间' in a:  
+                print(f'采集时间是{get_time(a,x,y)}')
+            elif '生日' in a or '年龄' in a:
+                print(f'年龄是{get_age(a,x,y)}')
+            elif '别' in a:
+                print('别',a,key_name)
+                print(get_gender(a))
+            elif '性别' in a:
+                print('性别', a)
+                print(get_gender(a))
         else:
             if key_name == '全人群系统项目编号':
                 kvalue = kvalue.append({'k': key_name, 'values': prefix}, ignore_index=True)
