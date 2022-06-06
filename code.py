@@ -10,81 +10,78 @@ import re
 from itertools import product
 
 
-# class Entry:
-#     def __init__(self, row, col, x, y, text):
-#         self.row = row
-#         self.col = col
-#         self.x = x
-#         self.y = y
-#         self.text = text
+class Entry:
+    def __init__(self, row, col, x, y, text):
+        self.row = row
+        self.col = col
+        self.x = x
+        self.y = y
+        self.text = text
 
-#     @property
-#     def x(self):
-#         return self.x
+    @property
+    def x(self):
+        return self.x
 
-#     @property
-#     def y(self):
-#         return self.y
+    @property
+    def y(self):
+        return self.y
 
-#     @property
-#     def row(self):
-#         return self.row
+    @property
+    def row(self):
+        return self.row
 
-#     @property
-#     def col(self):
-#         return self.col
+    @property
+    def col(self):
+        return self.col
 
-#     @property
-#     def text(self):
-#         return self.text
-
-
-# class Sheet:
-#     def __init__(self, qid) -> None:
-#         self.line_data = None
-#         self.key_value = None
-
-#         self.id = qid  # QDxxxxx
-
-#         # single pages or multi
-#         self.single = True
-
-#         self.table = None  # grid
-#         # or nested dictionary
+    @property
+    def text(self):
+        return self.text
 
 
-#         # header
-#         # body
-#         self.body_coor = [topx,topy,lowx,lowy]
-#         # footer
+class Sheet:
+    def __init__(self, table_data) -> None:
+        self.table_data = table_data  # grid
+        # or nested dictionary
+        self.key_value = pd.DataFrame(columns=['k','values'])  # final df to save in an excel
+
+        self.line_data = None
+        self.id = ''  # QDxxxxx
+        # single pages or multi
+        self.single = True     
+        # header
+        # body
+        self.body_coor = [topx,topy,lowx,lowy]
+        # footer
+        
+    def set_qid(self, qid):
+        self.id = qid
+
+    def set_line_data(self, line_data):
+        self.line_data = line_data
     
-#     def save_table(self):
-#         self.key_value.to_csv(f'{self.id}.csv', index=False)
+    def save_table(self):
+        self.key_value.to_csv(f'{self.id}.csv', index=False)
 
-#     def set_if_single_page(self, t):
-#         self.single = t
+    def set_if_single_page(self, d):
+        self.single = if_single_pages(d)
 
-#     #def get_entry(self, row, col):
-#     #    """when table is an array"""
-#     #    return self.table[row, col]
-
-#     def get_entry(self, row, col):
-#         """when table is a DataFrame"""
-#         try:
-#             return self.table[self.table['row']==row and self.table['col']==col].values[0]
-#         except ValueError:
-#             print('need to update this method')
+    def get_entry(self, row, col):
+        """when table is a DataFrame"""
+        try:
+            return self.table[self.table['row']==row and self.table['col']==col].values[0]
+        except KeyError:
+            print('this row/col does not exist!')
 
 
-
-
-
-def if_multi_pages(d):
+def if_single_pages(d):
     texts = list(d.keys())
     if texts.count('姓名') > 1 or texts.count('性别') > 1:
         return True 
 
 
+def get_value2(table_data:pd.DataFrame, key1, value1, key2):
+    return table_data[table_data[key1]==value1][key2].values[0]
 
 
 #####################################################################
@@ -92,6 +89,8 @@ def if_multi_pages(d):
 ##############################################################################
 def is_value(s,pattern):
     return bool(re.search(pattern, s))
+
+
 def get_value(s,pattern,x,y,r:list=(-3,3)):
     value = 'NOT FOUND'
     if ':' in s:
@@ -112,6 +111,7 @@ def get_value(s,pattern,x,y,r:list=(-3,3)):
     return value
 ###########################################################
 
+
 # 1. SYSTEM ID---------------------
 def get_id(s):
     id_pattern = r'QD[A-Z]+[0-9]+'
@@ -119,14 +119,19 @@ def get_id(s):
     item_id = item_id.group()
     return item_id
 
+
 # 2. TIME----------------------------
 def time_test(s):
     time_pattern = r'[0-9\-\/\.\:]+'
     return re.match(time_pattern, s).group()
+
+
 def is_time(s):
     time_pattern = r'[0-9]{4}[\-\/\.\:][0-9\-\/\.\:]+'
     b = bool(re.search(time_pattern, s))
     return b
+
+
 # def get_time(e):
 #     time = 'NOT FOUND'
 #     if ':' in e.text:
@@ -143,6 +148,8 @@ def is_time(s):
 #                     time = time_test(next_entry.text)
 #                     break
 #     return time
+
+
 def get_time(s,x,y):
     """dataframe version"""
     time = 'NOT FOUND'
@@ -161,12 +168,23 @@ def get_time(s,x,y):
 
 
 # 3. DIAGNOSIS-----------------------------------
-def get_diagnosis():
-    pass
+def get_diagnosis(s,x,y):
+    dig = 'NOT FOUND'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':           
+            dig = string
+        else:
+            for r,c in product(range(-5,5), range(-5,5)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if '孕' in text or '妊娠' in text:
+                        dig = text                   
+    return dig
+
 
 # 4. AGE----------------------------------------------------------------------
-def is_age_key(a:str):
-    base = i
 def is_age(s):
     if '岁' in s:
         s = s.replace('岁','')
@@ -174,10 +192,12 @@ def is_age(s):
     b = bool(re.search(age_pattern, s))
     return b
 
+
 def is_dob(s):
     dob_pattern = r'[0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2}'
     b = bool(re.search(dob_pattern, s))
     return b
+
 
 def get_age(s,x,y):
     age = 'NOT FOUND'
@@ -215,6 +235,7 @@ def is_gender(s):
     else:
         return False
 
+
 def get_gender(s):
     gender = 'NOT FOUND'
     if ':' in s:
@@ -223,29 +244,61 @@ def get_gender(s):
             gender = string
     return gender
 
+
 # 6.NAME----------------------------------------------------------------------
 def is_name(s):
-    name_pattern = r''  # TODO: 汉字。。少数民族？。。罕见字显示异常
+    name_pattern = u"^[\u4e00-\u9fa5]{2,3}$"  # TODO: 汉字。。少数民族？。。罕见字显示异常
     b = bool(re.search(name_pattern, s))
     return b
+
+
 def get_name(s,x,y):
-    name_pattern = r''
+    name_pattern = u"^[\u4e00-\u9fa5]{2,3}$"
     name = 'NOT FOUND'
     if ':' in s:
         string = s.split(':',1)[-1]
         if string != '':
             if is_name(string):
-                name = ''
+                name = re.match(name_pattern, string).group()
         else:
             for r,c in product(range(-3,3), range(-3,3)):  # TODO: range
                 value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
                 if len(value) > 0:
                     text = value['text'].values[0]
-                    if is_age(text):
+                    if is_name(text):
                         name = re.match(name_pattern, text).group()
-                    elif is_dob(text):
-                        name = re.match(name_pattern, text).group()
+                    
     return name
+
+# 7.科室----------------------------------------------------------------------
+def is_dep(s):
+    if '门诊' in s or '科别' in s or '科室' in s:
+        return True
+    else:
+        return False
+
+def get_dep(s,x,y):
+    dep_pattern = r"[\u4e00-\u9fa5]+门诊"
+    dep = 'NOT FOUND'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':           
+            dep = re.match(dep_pattern, string).group()
+        else:
+            for r,c in product(range(-5,5), range(-5,5)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if '产科' in text:
+                        dep = text
+                    else:
+                        try:
+                            dep = re.match(dep_pattern, text).group()
+                        except AttributeError:
+                            pass
+                    
+    return dep
+
 
 
 ######################################################
@@ -257,6 +310,7 @@ def robust(item,list,limit_b,limit_e):
     else:
         result = False
     return result
+
 
 def loading_json_content(imagejson_filename):
     test = json.load(open(imagejson_filename,encoding='UTF-8'))
@@ -278,6 +332,8 @@ def loading_json_content(imagejson_filename):
     row_limit = h_list[0]/2
     col_limit = w_list[0]/2
     return pre, row_limit, col_limit
+
+
 # assign col id by merging close item in one col
 def get_column_ids(pre, column_SD):
     pre1 = pre[['text','x','y','col']].copy()
@@ -298,12 +354,13 @@ def get_column_ids(pre, column_SD):
             xj = pre1.iloc[j]['x']
             tre = j
             if robust(xj,jug,column_SD,column_SD):
-                #group = group.append(pre.iloc[[j]])
                 pre1['col'].iloc[j] = col
                 jug.append(xj)
             else:
                 break
     return pre1
+
+
 # assign row id by merging close item in one row
 def get_row_ids(pre, row_SD):
     pre2 = pre[['text','x','y','row']].copy()
@@ -328,6 +385,8 @@ def get_row_ids(pre, row_SD):
             else:
                 break
     return pre2
+
+
 # merge row and col info
 def merge_row_col(pre1,pre2):
     pre0 =pd.merge(pre1,pre2)
@@ -348,58 +407,58 @@ def load_header(headerjson_filename):
 def get_target_data(headers,table_data, prefix, proj):
     table_data = table_data.reset_index()
     kvalue = pd.DataFrame(columns=['k','values'])
-    for key_pair in headers:
-        key_name = key_pair[0]
-        i = key_pair[1]
-        a = table_data[table_data['text'].str.contains(i,regex=True)]['text']
-        if len(a) != 0:
-            a = table_data[table_data['text'].str.contains(i,regex=True)]['text'].values[0]   
-            y = table_data[table_data['text']==a]['row'].values[0]
-            x = table_data[table_data['text']==a]['col'].values[0]
-            if '时间' in a:  
-                print(f'采集时间是{get_time(a,x,y)}')
-            elif '生日' in a or '年龄' in a:
-                print(f'年龄是{get_age(a,x,y)}')
-            elif '别' in a:
-                print('别',a,key_name)
-                print(get_gender(a))
-            elif '性别' in a:
-                print('性别', a)
-                print(get_gender(a))
-        else:
-            if key_name == '全人群系统项目编号':
-                kvalue = kvalue.append({'k': key_name, 'values': prefix}, ignore_index=True)
-            elif key_name == '检验项目':
-                kvalue = kvalue.append({'k': key_name, 'values': proj}, ignore_index=True)
-            else:
-                kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
-            continue
 
-    #     split = a.find(':')
-    #     if split != -1:
-    #         value = a[split+1:]
-    #         if '时间' in a:
-    #             value = time_test(value)
-    #         elif '检验项目' in a:
-    #             value = '血糖'
-    #         kvalue = kvalue.append({'k': key_name, 'values': value}, ignore_index=True)
-    #     else:
-    #         y = table_data[table_data['text']==a]['row'].values[0]
-    #         x = table_data[table_data['text']==a]['col'].values[0]
-    #         value = table_data[(table_data['row']==y)&(table_data['col']>x)]
-    #         print(key_name)
-    #         print(value)
-    #         value.sort_values('col')
-    #         try:
-    #             value = value['text'].iloc[0]
-    #         except IndexError:
-    #             kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
-    #             continue
-    #             #y1 = y+1
-    #             #value = table_data[table_data['row']==y1]
-    #             #print(value)
-    #         kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
-    # return kvalue
+    for key_pair in headers:
+        key_name = key_pair[0]; sub_keys = key_pair[1]
+        targets = table_data[table_data['text'].str.contains(sub_keys,regex=True)]['text']
+        value = 'NOT FOUND'
+        
+        # when there's multiple entries meet the condition
+        # TODO: xx
+        if len(targets) > 0:  
+            target = targets.values[0]
+            y = get_value2(table_data, 'text', target, 'row')
+            x = get_value2(table_data, 'text', target, 'col')
+            if '采集时间' in target:  
+                value = get_time(target,x,y)
+            elif '年龄' == key_name:  #elif '生日' in target or '年龄' in target:
+                value = get_age(target,x,y)
+            elif '性别' == key_name: 
+                for t in targets:
+                    value = get_gender(t)
+            elif key_name == '科室':
+                for t in targets:
+                    if is_dep(t):
+                        value = get_dep(t,x,y)
+            elif key_name == '姓名':
+                value = get_name(target, x, y)
+            elif key_name == '临床诊断':
+                value = get_diagnosis(target, x, y)
+            else:
+                split = target.find(':')
+                if split != -1:
+                    value = target[split+1:]
+                else:
+                    value = table_data[(table_data['row']==y)&(table_data['col']>x)]
+                    value.sort_values('col')
+                    try:
+                        value = value['text'].iloc[0]
+                    except IndexError:
+                        value = 'NOT FOUND'
+                        #kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
+                        #continue
+        # when key_name is not found in the data
+        #else:
+            #value = 'NOT FOUND'
+
+        # fixed values
+        if key_name == '全人群系统项目编号':
+            value = prefix
+        elif key_name == '检验项目':
+            value = proj
+
+        kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
+    return kvalue
 
 
 def find_section(ts):
@@ -475,15 +534,13 @@ if __name__ == '__main__':
     name = get_id(os.path.basename(imagejson_filename))
     headerjson_filename = sys.argv[2]
     prefix = sys.argv[3]
-    # proj=sys.argv[4]
-    proj='血糖'
+    proj=sys.argv[4]
 
     # loading image json
     image_data, row_inter, col_inter = loading_json_content(imagejson_filename)
     print(f'min row {row_inter}, min col {col_inter}')
     # construct image json to a table data
     col_data = get_column_ids(image_data,col_inter)
-    #print(col_data.head())
     row_data = get_row_ids(image_data,row_inter)
     table_data = merge_row_col(col_data,row_data)
 
@@ -499,7 +556,6 @@ if __name__ == '__main__':
                 index_col = line['col']
                 line_data.append(line['text'])
             else:
-                #print(line_data)
                 f.writelines(f'{line_data}\n')
                 old_row += 1
                 line_data = []
@@ -511,12 +567,12 @@ if __name__ == '__main__':
     # find target key-values
     headers = load_header(headerjson_filename)
     get_target_data(headers,table_data, name, proj)
-    #kvalue = get_target_data(headers,table_data, name, proj)
+    kvalue = get_target_data(headers,table_data, name, proj)
     ###########
     # save csv
-    #kvalue = kvalue.T
-    #print(kvalue)
-    #kvalue.to_csv(f"{prefix}.csv",encoding='utf_8_sig',header=False)
+    kvalue = kvalue.T
+    print(kvalue)
+    kvalue.to_csv(f"{prefix}.csv",encoding='utf_8_sig',header=False)
 
     # ts = []
     # for text in table_data['text']:
