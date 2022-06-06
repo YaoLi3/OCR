@@ -110,8 +110,6 @@ def get_value(s,pattern,x,y,r:list=(-3,3)):
         pass
     return value
 ###########################################################
-
-
 # 1. SYSTEM ID---------------------
 def get_id(s):
     id_pattern = r'QD[A-Z]+[0-9]+'
@@ -122,7 +120,9 @@ def get_id(s):
 
 # 2. TIME----------------------------
 def time_test(s):
-    time_pattern = r'[0-9\-\/\.\:]+'
+    #time_pattern = r'[0-9\-\/\.\:]+'
+    time_pattern = r'[0-9]{4}[\-\/\.\:][0-9\-\/\.\:]+'
+    s = s.split(' ',1)[0]
     return re.match(time_pattern, s).group()
 
 
@@ -130,24 +130,6 @@ def is_time(s):
     time_pattern = r'[0-9]{4}[\-\/\.\:][0-9\-\/\.\:]+'
     b = bool(re.search(time_pattern, s))
     return b
-
-
-# def get_time(e):
-#     time = 'NOT FOUND'
-#     if ':' in e.text:
-#         time_string = s.split(':',1)[-1]
-#         # when time_value is in the same entry with the time_key
-#         if time_string != '':
-#             time = time_test(time_string)
-#            # return time
-#         else:
-#         # if time_value is not in the same entry as the time_key, find if it's in the next row (same/close column)
-#             for r,c in product(range(3), range(3)):
-#                 next_entry = Sheet.get_entry(e.row+r, e.col+c)
-#                 if next_entry is not None and is_time(next_entry.text):
-#                     time = time_test(next_entry.text)
-#                     break
-#     return time
 
 
 def get_time(s,x,y):
@@ -188,7 +170,7 @@ def get_diagnosis(s,x,y):
 def is_age(s):
     if '岁' in s:
         s = s.replace('岁','')
-    age_pattern = r'^[0-9]{1,2}$'  # TODO: 1. raw string 2. 有没有没有”岁“的
+    age_pattern = r'^[0-9]{2}$'  # TODO: 1. raw string 2. 有没有没有”岁“的
     b = bool(re.search(age_pattern, s))
     return b
 
@@ -203,12 +185,11 @@ def get_age(s,x,y):
     age = 'NOT FOUND'
     age_pattern = r'[0-9]{2}'  # TODO: raw string
     dob_pattern = r'[0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2}'
-    #----------
     if ':' in s:
         string = s.split(':',1)[-1]
         if string != '':
             if is_age(string):
-                age = re.match(age_pattern, string).group()
+                age = re.match(age_pattern, string).group()  # still contains 岁。。
                 age = age+'岁'
             elif is_dob(string):
                 age = re.match(dob_pattern, string).group()
@@ -218,11 +199,9 @@ def get_age(s,x,y):
                 if len(value) > 0:
                     text = value['text'].values[0]
                     if is_age(text):
-                        print(text)
                         age = re.match(age_pattern, text).group()
                         age = age+'岁'
                     elif is_dob(text):
-                        print(text)
                         age = re.match(dob_pattern, text).group()
     return age
 
@@ -236,12 +215,21 @@ def is_gender(s):
         return False
 
 
-def get_gender(s):
+def get_gender(s,x,y):
     gender = 'NOT FOUND'
     if ':' in s:
         string = s.split(':',1)[-1]
-        if is_gender(string):
-            gender = string
+        if string != '':
+            if is_gender(string):
+                gender = string
+        else:
+            for r,c in product(range(-3,3), range(-3,3)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if is_gender(text):
+                        gender = text
+
     return gender
 
 
@@ -270,12 +258,14 @@ def get_name(s,x,y):
                     
     return name
 
+
 # 7.科室----------------------------------------------------------------------
 def is_dep(s):
     if '门诊' in s or '科别' in s or '科室' in s:
         return True
     else:
         return False
+
 
 def get_dep(s,x,y):
     dep_pattern = r"[\u4e00-\u9fa5]+门诊"
@@ -408,27 +398,33 @@ def get_target_data(headers,table_data, prefix, proj):
     table_data = table_data.reset_index()
     kvalue = pd.DataFrame(columns=['k','values'])
 
+
     for key_pair in headers:
+    # loop starts
         key_name = key_pair[0]; sub_keys = key_pair[1]
         targets = table_data[table_data['text'].str.contains(sub_keys,regex=True)]['text']
         value = 'NOT FOUND'
-        
+
         # when there's multiple entries meet the condition
         # TODO: xx
         if len(targets) > 0:  
             target = targets.values[0]
             y = get_value2(table_data, 'text', target, 'row')
             x = get_value2(table_data, 'text', target, 'col')
-            if '采集时间' in target:  
+            if key_name == '采集时间':  #if '采集时间' in target:  
                 value = get_time(target,x,y)
             elif '年龄' == key_name:  #elif '生日' in target or '年龄' in target:
                 value = get_age(target,x,y)
-            elif '性别' == key_name: 
+            elif key_name == '性别': 
                 for t in targets:
-                    value = get_gender(t)
+                    y = get_value2(table_data, 'text', t, 'row')
+                    x = get_value2(table_data, 'text', t, 'col')
+                    value = get_gender(t,x,y)
             elif key_name == '科室':
                 for t in targets:
                     if is_dep(t):
+                        y = get_value2(table_data, 'text', t, 'row')
+                        x = get_value2(table_data, 'text', t, 'col')
                         value = get_dep(t,x,y)
             elif key_name == '姓名':
                 value = get_name(target, x, y)
@@ -445,11 +441,7 @@ def get_target_data(headers,table_data, prefix, proj):
                         value = value['text'].iloc[0]
                     except IndexError:
                         value = 'NOT FOUND'
-                        #kvalue = kvalue.append({'k':key_name,'values':'NOT FOUND'},ignore_index=True)
-                        #continue
-        # when key_name is not found in the data
-        #else:
-            #value = 'NOT FOUND'
+                        
 
         # fixed values
         if key_name == '全人群系统项目编号':
@@ -458,6 +450,7 @@ def get_target_data(headers,table_data, prefix, proj):
             value = proj
 
         kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
+    # loop ends
     return kvalue
 
 
@@ -497,12 +490,12 @@ def detect_col(sss, rcor=7, ccor=10):
     for i in range(1, len(sss)):
         start_y = sss[0].y
         ct = sss[i]; lt = sss[i-1]
-        #print(lt.text, lt.row, lt.y)
+        print(lt.text, lt.row, lt.y)
         test[n].append(lt)
         x_change = ct.x - lt.x
         y_change = ct.y - start_y
         if x_change > row_inter*rcor and y_change < col_inter*ccor:
-            #print('----------')
+            print('----------')
             n += 1
             test[n] = []
     return test
@@ -538,7 +531,6 @@ if __name__ == '__main__':
 
     # loading image json
     image_data, row_inter, col_inter = loading_json_content(imagejson_filename)
-    print(f'min row {row_inter}, min col {col_inter}')
     # construct image json to a table data
     col_data = get_column_ids(image_data,col_inter)
     row_data = get_row_ids(image_data,row_inter)
