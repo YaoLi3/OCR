@@ -18,6 +18,10 @@ def get_value2(table_data:pd.DataFrame, key1, value1, key2):
     return table_data[table_data[key1]==value1][key2].values[0]
 
 
+def get_value3(text, key2):
+    return table_data[table_data['text']==text][str(key2)].values[0]
+
+
 def is_value(s,pattern):
     return bool(re.search(pattern, s))
 
@@ -240,6 +244,77 @@ def get_dep(s,x,y):
     return dep
 
 
+# 8.sample----------------------------------------------------------------------
+def get_sample(s,x,y):
+    sam = 'NOT FOUND'
+    sam_pattern = r'[\u4e00-\u9fa5]+'
+    if ':' in s:
+        string = s.split(':',1)[-1]
+        if string != '':
+            sam = string
+        else:
+            for r,c in product(range(-1,2), range(-3,4)):  # TODO: range
+                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                if len(value) > 0:
+                    text = value['text'].values[0]
+                    if '血' in text:
+                        sam = re.search(sam_pattern, text).group()
+    return sam
+
+
+# 10. main table section----------------------------------------------------------------------
+def find_section(table_data, row_inter, col_inter):
+    print(table_data.head())
+    top_indice = []; low_indice = []
+    table_data = table_data.reset_index(drop=True)
+    print(table_data.head())
+    for t in table_data['text']:
+        if t in ['参考区间', '参考值', '单位']:
+            df = table_data[table_data['text']==t].sort_values('y', ascending=False)
+            top_indice.append(df.index[0])
+        if "备注" in t or '检验者' in t or '检验医' in t:
+            df = table_data[table_data['text']==t].sort_values('y')
+            low_indice.append(df.index[0])
+    top = max(top_indice)+1  #TODO:
+    low = min(low_indice)
+    sub_table_data = table_data.iloc[top:low]
+    sub_table_data = sub_table_data.reset_index()
+    
+    # update row & col id
+    row = 0; col = 0
+    rcor = 10; ccor = 10
+    sub_table_data = sub_table_data.sort_values('x')
+    sub_table_data = sub_table_data.reset_index(drop=True)
+    print(sub_table_data)
+    for i in sub_table_data.index[:-1]:
+        start_y = sub_table_data['y'].iloc[0]
+        x_change = sub_table_data['x'].iloc[i+1] - sub_table_data['x'].iloc[i]
+        y_change = sub_table_data['y'].iloc[i+1] - start_y 
+        if x_change > row_inter*rcor and y_change < col_inter*ccor:  # i is the last column, i+1 changes to next column
+            sub_table_data['col'].iloc[i] = col
+            col += 1
+            sub_table_data['col'].iloc[i+1] = col
+    sub_table_data = sub_table_data.sort_values(by=['col','y'])
+    for col in set(sub_table_data['col']):
+        print(sub_table_data[sub_table_data['col']==col])
+
+    '''
+    data = {}
+    v1 = sorted(test[1], key=lambda x: x.y)
+    v3 = sorted(test[3], key=lambda x: x.y)
+    for i in v1:
+        for j in v3:
+            if abs(i.y-j.y) <= row_inter*range_cor:
+                #print(i.text, j.text)
+                data[i.text] = j.text
+            #if abs(i.row-j.row) == 1:
+                #print(i.text, j.text)
+    
+    for t,v in l3.items():
+        if t in sub_name:
+            return v
+    '''
+
 
 ######################################################
 # loading raw json
@@ -388,6 +463,8 @@ def get_target_data(headers,table_data, prefix, proj):
                     #        value = 'NOT FOUND'
             elif key_name == '临床诊断':
                 value = get_diagnosis(target, x, y)
+            elif key_name == '样本类型':
+                value = get_sample(target, x, y)
             else:
                 split = target.find(':')
                 if split != -1:
@@ -429,6 +506,8 @@ if __name__ == '__main__':
     col_data = get_column_ids(image_data,col_inter)
     row_data = get_row_ids(image_data,row_inter)
     table_data = merge_row_col(col_data,row_data)
+    find_section(table_data, row_inter, col_inter)
+    '''
     table_data.to_csv(f"{prefix}.table.csv",encoding='utf_8_sig',header=True,index=False)
 
 
@@ -441,5 +520,5 @@ if __name__ == '__main__':
     # save csv
     kvalue = kvalue.T
     kvalue.to_csv(f"{prefix}.csv",encoding='utf_8_sig',header=False)
-
+    '''
 
