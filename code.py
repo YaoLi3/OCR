@@ -22,28 +22,28 @@ def get_value3(text, key2):
     return table_data[table_data['text']==text][str(key2)].values[0]
 
 
-def is_value(s,pattern):
-    return bool(re.search(pattern, s))
-
-
-def get_value(s,pattern,x,y,r:list=(-3,3)):
-    value = 'NOT FOUND'
-    if ':' in s:
-        string = s.split(':',1)[-1]
-        if string != '':
-            if is_value(string, pattern):
-                value = re.match(pattern, text).group()
-        else:
-            for r,c in product(range(r[0],r[1]), range(r[0],r[1])):  # TODO: range
-                value1 = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
-                if len(value1) > 0:
-                    text = value1['text'].values[0]
-                    if is_value(text):
-                        value = re.match(pattern, text).group()
-    else:
-        # when : is not in key-value?
-        pass
-    return value
+#def is_value(s,pattern):
+#    return bool(re.search(pattern, s))
+#
+#
+#def get_value(s,pattern,x,y,r:list=(-3,3)):
+#    value = 'NOT FOUND'
+#    if ':' in s:
+#        string = s.split(':',1)[-1]
+#        if string != '':
+#            if is_value(string, pattern):
+#                value = re.match(pattern, text).group()
+#        else:
+#            for r,c in product(range(r[0],r[1]), range(r[0],r[1])):  # TODO: range
+#                value1 = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+#                if len(value1) > 0:
+#                    text = value1['text'].values[0]
+#                    if is_value(text):
+#                        value = re.match(pattern, text).group()
+#    else:
+#        # when : is not in key-value?
+#        pass
+#    return value
 ###########################################################
 # 1. SYSTEM ID---------------------
 def get_id(s):
@@ -61,7 +61,7 @@ def time_test(s):
     try:
         return re.search(time_pattern, s).group()
     except AttributeError:
-        print(s)
+        #print(f'time {s}')
         return 'NOT FOUND'
 
 
@@ -131,7 +131,10 @@ def get_age(s,x,y):
         string = s.split(':',1)[-1]
         if string != '':
             # 年龄不需要判断
-            age = string
+            try:
+                age = re.search(r'[0-9]{1,2}[岁|月|日]{0,1}', string).group()
+            except AttributeError:
+                age = string
         else:
             for r,c in product(range(-2,3), range(-6,10)):  # TODO: range
                 value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
@@ -162,8 +165,6 @@ def get_gender(s,x,y):
     if ':' in s:
         string = s.split(':',1)[-1]
         if string != '':
-
-            #if is_gender(string):
             gender = string
         else:
             for r,c in product(range(-5,5), range(-5,5)):  # TODO: range
@@ -190,8 +191,6 @@ def get_name(s,x,y):
         string = s.split(':',1)[-1]
         if string != '':
             name = string
-            #if is_name(string):
-            #    name = re.match(name_pattern, string).group()
         else:
             for r,c in product(range(-3,4), range(-5,7)):  # TODO: range
                 value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
@@ -199,7 +198,6 @@ def get_name(s,x,y):
                     text = value['text'].values[0]
                     if is_name(text):
                         name = re.match(name_pattern, text).group()
-                    
     return name
 
 
@@ -217,18 +215,10 @@ def get_dep(s,x,y):
     if ':' in s:
         string = s.split(':',1)[-1]
         if string != '':
-            if '门诊' in string and len(string) > 2:
-                dep = re.search(dep_pattern, string).group()
-            else:
-                dep = string
-            #if '产科' in string:
-            #    dep = string
+            #if '门诊' in string and len(string) > 2:
+            #    dep = re.search(dep_pattern, string).group()
             #else:
-            #    try:
-            #        dep = re.match(dep_pattern, string).group()
-            #    except AttributeError:
-            #        print(s)
-            #        pass
+            dep = string
         else:
             for r,c in product(range(-5,5), range(-5,5)):  # TODO: range
                 value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
@@ -253,8 +243,9 @@ def get_sample(s,x,y):
         if string != '':
             sam = string
         else:
-            for r,c in product(range(-1,2), range(-3,4)):  # TODO: range
-                value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+            for r,c in product(range(-1,2), range(-3,6)):  # TODO: range
+                #value = table_data[(table_data['row']==y+r)&(table_data['col']==x+c)]
+                value = table_data[(table_data['row']==y+r)&(table_data['col']>x)]
                 if len(value) > 0:
                     text = value['text'].values[0]
                     if '血' in text:
@@ -262,12 +253,59 @@ def get_sample(s,x,y):
     return sam
 
 
+# 9. tests----------------------------------------------------------------------
+def is_test(s):
+    # test result values should not contains these symols
+    non_pattern = r''
+    units = ['U/L', 'umol/L', '/ul', 'mS/cm', 'mg/L', 'mmol/L', 'ug/ml', '*10~9/L', 'g/L', '%', 'fL', 'pg', 'fl']
+    if any(i in s for i in units):
+        return False
+    else:
+        return True
+
+
+def get_test(s): 
+    value = 'NOT FOUND'
+    subt = s
+    y = get_value2(sub, 'text', subt, 'row')
+    x = get_value2(sub, 'text', subt, 'col')
+    try:
+        text = sub[(sub['row']==y)&(sub['col'] > x)]
+        text.sort_values('col')
+        text = list(text['text'])[0]
+        if is_test(text):
+            value = text
+    except IndexError:
+        pass
+    return value
+
+
+
 # 10. main table section----------------------------------------------------------------------
+def update_table(sub_table_data):
+    # update row & col id
+    row = 0; col = 0
+    rcor = 7  # TODO: crucial
+    ccor = 5
+    sub_table_data = sub_table_data.sort_values('x')
+    sub_table_data = sub_table_data.reset_index(drop=True)
+    for i in sub_table_data.index[:-1]:
+        start_y = sub_table_data['y'].iloc[0]
+        x_change = sub_table_data['x'].iloc[i+1] - sub_table_data['x'].iloc[i]
+        y_change = sub_table_data['y'].iloc[i+1] - start_y 
+        sub_table_data['col'].iloc[i] = col
+        if x_change > row_inter*rcor and y_change < col_inter*ccor:  # i is the last column, i+1 changes to next column
+            col += 1
+        sub_table_data['col'].iloc[sub_table_data.index[-1]] = col
+    sub_table_data = sub_table_data.sort_values(by=['col','y'])
+    return sub_table_data
+
+
 def find_section(table_data, row_inter, col_inter):
-    print(table_data.head())
+    table_data = table_data.copy()
+    table_data = table_data.sort_values('y')
     top_indice = []; low_indice = []
     table_data = table_data.reset_index(drop=True)
-    print(table_data.head())
     for t in table_data['text']:
         if t in ['参考区间', '参考值', '单位']:
             df = table_data[table_data['text']==t].sort_values('y', ascending=False)
@@ -275,45 +313,18 @@ def find_section(table_data, row_inter, col_inter):
         if "备注" in t or '检验者' in t or '检验医' in t:
             df = table_data[table_data['text']==t].sort_values('y')
             low_indice.append(df.index[0])
-    top = max(top_indice)+1  #TODO:
-    low = min(low_indice)
-    sub_table_data = table_data.iloc[top:low]
-    sub_table_data = sub_table_data.reset_index()
-    
-    # update row & col id
-    row = 0; col = 0
-    rcor = 10; ccor = 10
-    sub_table_data = sub_table_data.sort_values('x')
-    sub_table_data = sub_table_data.reset_index(drop=True)
-    print(sub_table_data)
-    for i in sub_table_data.index[:-1]:
-        start_y = sub_table_data['y'].iloc[0]
-        x_change = sub_table_data['x'].iloc[i+1] - sub_table_data['x'].iloc[i]
-        y_change = sub_table_data['y'].iloc[i+1] - start_y 
-        if x_change > row_inter*rcor and y_change < col_inter*ccor:  # i is the last column, i+1 changes to next column
-            sub_table_data['col'].iloc[i] = col
-            col += 1
-            sub_table_data['col'].iloc[i+1] = col
-    sub_table_data = sub_table_data.sort_values(by=['col','y'])
-    for col in set(sub_table_data['col']):
-        print(sub_table_data[sub_table_data['col']==col])
-
-    '''
-    data = {}
-    v1 = sorted(test[1], key=lambda x: x.y)
-    v3 = sorted(test[3], key=lambda x: x.y)
-    for i in v1:
-        for j in v3:
-            if abs(i.y-j.y) <= row_inter*range_cor:
-                #print(i.text, j.text)
-                data[i.text] = j.text
-            #if abs(i.row-j.row) == 1:
-                #print(i.text, j.text)
-    
-    for t,v in l3.items():
-        if t in sub_name:
-            return v
-    '''
+    if len(top_indice) > 1 and len(low_indice) > 1:
+        top = max(top_indice)+1  #TODO:
+        low = min(low_indice)
+        if top < low:
+            sub_table_data = table_data.iloc[top:low]
+            sub_table_data = sub_table_data.reset_index()
+            sub_table_data = update_table(sub_table_data)
+            return sub_table_data
+        else:
+            return table_data
+    else:
+        return table_data
 
 
 ######################################################
@@ -362,7 +373,6 @@ def get_column_ids(pre, column_SD):
         pre1['col'].iloc[i] = col
         if i == len(pre1)-1:
                 break
-        #group = pre.iloc[[i]]
         xi = pre1.iloc[i]['x']
         jug = list([xi])
         for j in range(i+1,len(pre1)):
@@ -419,7 +429,8 @@ def load_header(headerjson_filename):
 
 
 ######################################################
-def get_target_data(headers,table_data, prefix, proj):
+def get_target_data(headers,table_data, prefix, proj, sub):
+    table_data = table_data.copy()
     table_data = table_data.reset_index()
     kvalue = pd.DataFrame(columns=['k','values'])
 
@@ -435,15 +446,26 @@ def get_target_data(headers,table_data, prefix, proj):
             target = targets.values[0]
             y = get_value2(table_data, 'text', target, 'row')
             x = get_value2(table_data, 'text', target, 'col')
+            
+            # 1. headers & footers-------------------------------------------
             if key_name == '采集时间':  #if '采集时间' in target:  
                 value = get_time(target,x,y)
             elif '年龄' == key_name:  #elif '生日' in target or '年龄' in target:
-                value = get_age(target,x,y)
+                for t in targets:
+                    y = get_value2(table_data, 'text', t, 'row')
+                    x = get_value2(table_data, 'text', t, 'col')
+                    if '年龄' in t:
+                        value = get_age(t,x,y)
+                        break
+                    else:
+                        value = get_age(t,x,y)
             elif key_name == '性别': 
                 for t in targets:
                     y = get_value2(table_data, 'text', t, 'row')
                     x = get_value2(table_data, 'text', t, 'col')
                     value = get_gender(t,x,y)
+                    if is_gender(value):
+                        break 
             elif key_name == '科室':
                 for t in targets:
                     if is_dep(t):
@@ -451,11 +473,13 @@ def get_target_data(headers,table_data, prefix, proj):
                         x = get_value2(table_data, 'text', t, 'col')
                         value = get_dep(t,x,y)
             elif key_name == '姓名':
-                value = get_name(target,x,y)
-                #for t in targets:
-                #    y = get_value2(table_data, 'text', t, 'row')
-                #    x = get_value2(table_data, 'text', t, 'col')
-                #    value = get_name(t, x, y)
+                #value = get_name(target,x,y)
+                for t in targets:
+                    y = get_value2(table_data, 'text', t, 'row')
+                    x = get_value2(table_data, 'text', t, 'col')
+                    value = get_name(t, x, y)
+                    if is_name(value):
+                        break
                     #if value == 'NOT FOUND':
                     #    try:
                     #        value = re.search(u"^[\u4e00-\u9fa5]{2,3}$", prefix).group()
@@ -464,7 +488,11 @@ def get_target_data(headers,table_data, prefix, proj):
             elif key_name == '临床诊断':
                 value = get_diagnosis(target, x, y)
             elif key_name == '样本类型':
+                print(target)
                 value = get_sample(target, x, y)
+            
+            
+            # 2. main table content-----------------
             else:
                 split = target.find(':')
                 if split != -1:
@@ -474,14 +502,26 @@ def get_target_data(headers,table_data, prefix, proj):
                     value.sort_values('col')
                     try:
                         value = value['text'].iloc[0]
+                        if not is_test(value):
+                            value = 'NOT FOUND'
                     except IndexError:
-                        value = 'NOT FOUND'
+                        value = 'NOT FOUND' 
+                '''
+                subdf = sub[sub['text'].str.contains(sub_keys,regex=True)]['text']
+                if len(subdf) > 0:
+                    subt = subdf.values[0]
+                    value = get_test(subt)
+                else:
+                    value = 'NOT FOUND'
+               ''' 
 
-        # fixed values
+        # 3. fixed values
         if key_name == '全人群系统项目编号':
             value = prefix
         elif key_name == '检验项目':
             value = proj
+
+
 
         kvalue = kvalue.append({'k':key_name,'values':value},ignore_index=True)
     # loop ends
@@ -493,6 +533,7 @@ if __name__ == '__main__':
     headerjson_filename = sys.argv[2]
     prefix = sys.argv[3]
     proj=sys.argv[4]
+    dirt = sys.argv[5]
     name = get_id(os.path.basename(imagejson_filename))
     if name is None:
         name = prefix
@@ -506,19 +547,18 @@ if __name__ == '__main__':
     col_data = get_column_ids(image_data,col_inter)
     row_data = get_row_ids(image_data,row_inter)
     table_data = merge_row_col(col_data,row_data)
-    find_section(table_data, row_inter, col_inter)
-    '''
-    table_data.to_csv(f"{prefix}.table.csv",encoding='utf_8_sig',header=True,index=False)
+    sub = find_section(table_data, row_inter, col_inter)
+    table_data.to_csv(f"{dirt}/{prefix}.table.csv",encoding='utf_8_sig',header=True,index=False)
+    sub.to_csv(f"{dirt}/{prefix}.sub.table.csv",encoding='utf_8_sig',header=True,index=False)
 
 
     ###########
     # find target key-values
     headers = load_header(headerjson_filename)
-    get_target_data(headers,table_data, name, proj)
-    kvalue = get_target_data(headers,table_data, name, proj)
+    kvalue = get_target_data(headers, table_data, name, proj, sub)
     ###########
     # save csv
     kvalue = kvalue.T
-    kvalue.to_csv(f"{prefix}.csv",encoding='utf_8_sig',header=False)
-    '''
+    kvalue.to_csv(f"{dirt}/{prefix}.csv",encoding='utf_8_sig',header=False)
+    
 
